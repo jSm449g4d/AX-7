@@ -22,18 +22,20 @@ def tf_ini():#About GPU resources
         tf.config.experimental.set_memory_growth(physical_devices[k], True)
         print('memory growth:', tf.config.experimental.get_memory_growth(physical_devices[k]))
     
-def GEN(input_shape=(64,64,3,)):
+def GEN(input_shape=(64,64,3,),output_classes=2):
     mod=mod_inp = Input(shape=input_shape)
-    mod=Conv2D(8,3,2,padding="same")(mod)
-    mod=Conv2D(8,3,2,padding="same")(mod)
-    mod=Activation("relu")(mod)
-    mod=Dropout(0.1)(mod)
-    mod=Conv2D(8,3,2,padding="same")(mod)
-    mod=Conv2D(8,3,2,padding="same")(mod)
-    mod=Activation("relu")(mod)
-    mod=Dropout(0.1)(mod)
+    mod=UpSampling2D(2)(mod)
+    mod=keras.applications.mobilenet_v2.MobileNetV2(
+        weights='imagenet', input_tensor=mod, input_shape=(128, 128, 3),
+        include_top=False, pooling='max'#,classes=output_classes
+        ).output
     mod=Flatten()(mod)
-    mod=Dense(2,activation="softmax")(mod)
+    mod=Dropout(0.1)(mod)
+    mod=Dense(256,activation="relu")(mod)
+    mod=Dropout(0.1)(mod)
+    mod=Dense(64,activation="relu")(mod)
+    mod=Dropout(0.1)(mod)
+    mod=Dense(output_classes,activation="softmax")(mod)
     return keras.models.Model(inputs=mod_inp, outputs=mod)
 
 def main():
@@ -54,10 +56,10 @@ def main():
     model.compile(optimizer='adam',
                 loss=keras.losses.binary_crossentropy)
     model.summary()
-    cbks=[keras.callbacks.TensorBoard(log_dir='logs', histogram_freq=1)]
+    cbks=[keras.callbacks.TensorBoard(log_dir='logsMobile', histogram_freq=1)]
     
     model.fit(tdg,steps_per_epoch=len(tdg),epochs=30,validation_data=tedg,validation_steps=len(tedg),callbacks=cbks)
-    model.save('model.h5')
+    model.save('modelMobile.h5')
 
 if __name__ == "__main__":
     tf_ini()
